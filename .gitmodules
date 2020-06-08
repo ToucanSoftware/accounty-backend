@@ -1,0 +1,3 @@
+[submodule "protobuf-spec"]
+	path = api/protobuf-spec
+	url = https://github.com/toucansoftware/accounty-api.git
