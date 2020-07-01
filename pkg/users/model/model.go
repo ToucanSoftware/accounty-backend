@@ -26,18 +26,18 @@ import (
 
 // User is a model that maps to users table.
 type User struct {
-	ID        int64
-	Name      string
-	Username  string
-	Email     string
-	Password  string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt time.Time
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Password  string    `json:"password"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // UserRepository interfaces for accessing user data
 type UserRepository interface {
+	FindAll(ctx context.Context, users *[]User) error
 	Find(ctx context.Context, user *User, id int64) error
 	Create(ctx context.Context, user *User) error
 }
@@ -47,9 +47,12 @@ type userRepository struct {
 	repository rel.Repository
 }
 
+func (ur userRepository) FindAll(ctx context.Context, users *[]User) error {
+	return ur.repository.FindAll(ctx, users)
+}
+
 func (ur userRepository) Find(ctx context.Context, user *User, id int64) error {
-	ur.repository.Find(ctx, user, where.Eq("id", id))
-	return nil
+	return ur.repository.Find(ctx, user, where.Eq("id", id))
 }
 
 func (ur userRepository) Create(ctx context.Context, user *User) error {

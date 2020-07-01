@@ -64,18 +64,24 @@ func (s *Server) CreateUser(ctx context.Context, in *CreateUserRequest) (*Create
 
 // ListUsers List users in the system
 func (s *Server) ListUsers(ctx context.Context, in *ListUsersRequest) (*ListUsersResponse, error) {
-	var user = model.User{}
-	err := s.Repo.Find(ctx, &user, 1)
+	var result []model.User
+
+	err := s.Repo.FindAll(ctx, &result)
 
 	if err != nil {
 		log.Fatalf("Error %v", err)
 	}
 
-	var users = []*User{
-		&User{
-			Id:   user.ID,
-			Name: user.Name,
-		},
+	var users = []*User{}
+
+	for _, user := range result {
+		marshalled := User{
+			Id:       user.ID,
+			Name:     user.Name,
+			Username: user.Username,
+			Email:    user.Email,
+		}
+		users = append(users, &marshalled)
 	}
 
 	return &ListUsersResponse{
