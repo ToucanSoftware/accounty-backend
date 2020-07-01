@@ -40,6 +40,7 @@ type UserRepository interface {
 	FindAll(ctx context.Context, users *[]User) error
 	Find(ctx context.Context, user *User, id int64) error
 	Create(ctx context.Context, user *User) error
+	Update(ctx context.Context, user *User) error
 }
 
 // actual implementation
@@ -57,6 +58,10 @@ func (ur userRepository) Find(ctx context.Context, user *User, id int64) error {
 
 func (ur userRepository) Create(ctx context.Context, user *User) error {
 	return ur.repository.Insert(ctx, user)
+}
+
+func (ur userRepository) Update(ctx context.Context, user *User) error {
+	return ur.repository.Update(ctx, user)
 }
 
 // New returns a new repository

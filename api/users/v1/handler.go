@@ -109,6 +109,42 @@ func (s *Server) GetUser(ctx context.Context, in *GetUserRequest) (*GetUserRespo
 	}, nil
 }
 
+// UpdateUser Updates an existing users
+func (s *Server) UpdateUser(ctx context.Context, in *UpdateUserRequest) (*UpdateUserResponse, error) {
+	var result model.User
+	var id = in.Id
+	var err error
+
+	err = s.Repo.Find(ctx, &result, id)
+
+	if err != nil {
+		if err == rel.ErrNotFound {
+			return nil, status.Error(codes.NotFound,
+				fmt.Sprintf("User with id %d not found.", id))
+		}
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+	var user = MarsallUser(in.User)
+	user.ID = id
+
+	err = s.Repo.Update(ctx, user)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+
+	return &UpdateUserResponse{
+		User: &User{
+			Id:       user.ID,
+			Name:     user.Name,
+			Username: user.Username,
+			Email:    user.Email,
+		},
+	}, nil
+}
+
 // StartUserManagemenetRESTServer Starts s REST Reverse proxy service for User Management
 func StartUserManagemenetRESTServer(address, grpcAddress, certFile string) error {
 	var err error
@@ -158,6 +194,16 @@ func StartUserManagemenetGRPCServer(address, certFile, keyFile string, repo rel.
 	}
 
 	return nil
+}
+
+// MarsallUser marsall model Object into gRPC object
+func MarsallUser(value *User) *model.User {
+	return &model.User{
+		ID:       value.Id,
+		Name:     value.Name,
+		Username: value.Username,
+		Email:    value.Email,
+	}
 }
 
 // UnmarsallUser unmarsall gRPC User model object into User
