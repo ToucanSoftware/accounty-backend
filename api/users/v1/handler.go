@@ -37,7 +37,29 @@ type Server struct {
 
 // CreateUser Creates a new User in the system
 func (s *Server) CreateUser(ctx context.Context, in *CreateUserRequest) (*CreateUserResponse, error) {
-	return nil, nil
+
+	var user = model.User{
+		Name:     in.User.Name,
+		Username: in.User.Username,
+		Email:    in.User.Email,
+		Password: "1234",
+	}
+
+	err := s.Repo.Create(ctx, &user)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+
+	return &CreateUserResponse{
+		User: &User{
+			Id:       user.ID,
+			Name:     user.Name,
+			Username: user.Username,
+			Email:    user.Email,
+		},
+	}, nil
 }
 
 // ListUsers List users in the system

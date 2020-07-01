@@ -28,6 +28,9 @@ import (
 type User struct {
 	ID        int64
 	Name      string
+	Username  string
+	Email     string
+	Password  string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt time.Time
@@ -36,6 +39,7 @@ type User struct {
 // UserRepository interfaces for accessing user data
 type UserRepository interface {
 	Find(ctx context.Context, user *User, id int64) error
+	Create(ctx context.Context, user *User) error
 }
 
 // actual implementation
@@ -46,6 +50,10 @@ type userRepository struct {
 func (ur userRepository) Find(ctx context.Context, user *User, id int64) error {
 	ur.repository.Find(ctx, user, where.Eq("id", id))
 	return nil
+}
+
+func (ur userRepository) Create(ctx context.Context, user *User) error {
+	return ur.repository.Insert(ctx, user)
 }
 
 // New returns a new repository
