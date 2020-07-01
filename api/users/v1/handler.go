@@ -24,7 +24,9 @@ import (
 	model "github.com/ToucanSoftware/accounty-backend/pkg/users/model"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 	"log"
 	"net"
 	"net/http"
@@ -69,23 +71,42 @@ func (s *Server) ListUsers(ctx context.Context, in *ListUsersRequest) (*ListUser
 	err := s.Repo.FindAll(ctx, &result)
 
 	if err != nil {
-		log.Fatalf("Error %v", err)
+		log.Printf("Error: %v", err)
+		return nil, err
 	}
 
 	var users = []*User{}
 
 	for _, user := range result {
-		marshalled := User{
-			Id:       user.ID,
-			Name:     user.Name,
-			Username: user.Username,
-			Email:    user.Email,
-		}
-		users = append(users, &marshalled)
+		users = append(users, UnmarsallUser(&user))
 	}
 
 	return &ListUsersResponse{
 		Users: users}, nil
+}
+
+// GetUser Get an existing users
+func (s *Server) GetUser(ctx context.Context, in *GetUserRequest) (*GetUserResponse, error) {
+	var result model.User
+
+	var id = in.Id
+
+	err := s.Repo.Find(ctx, &result, id)
+
+	if err != nil {
+		if err == rel.ErrNotFound {
+			return nil, status.Error(codes.NotFound,
+				fmt.Sprintf("User with id %d not found.", id))
+		}
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+
+	var user = UnmarsallUser(&result)
+
+	return &GetUserResponse{
+		User: user,
+	}, nil
 }
 
 // StartUserManagemenetRESTServer Starts s REST Reverse proxy service for User Management
@@ -137,4 +158,14 @@ func StartUserManagemenetGRPCServer(address, certFile, keyFile string, repo rel.
 	}
 
 	return nil
+}
+
+// UnmarsallUser unmarsall gRPC User model object into User
+func UnmarsallUser(value *model.User) *User {
+	return &User{
+		Id:       value.ID,
+		Name:     value.Name,
+		Username: value.Username,
+		Email:    value.Email,
+	}
 }
