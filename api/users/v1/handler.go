@@ -145,6 +145,33 @@ func (s *Server) UpdateUser(ctx context.Context, in *UpdateUserRequest) (*Update
 	}, nil
 }
 
+// DeleteUser Deletes an existing user
+func (s *Server) DeleteUser(ctx context.Context, in *DeleteUserRequest) (*DeleteUserResponse, error) {
+	var result model.User
+	var id = in.Id
+	var err error
+
+	err = s.Repo.Find(ctx, &result, id)
+
+	if err != nil {
+		if err == rel.ErrNotFound {
+			return nil, status.Error(codes.NotFound,
+				fmt.Sprintf("User with id %d not found.", id))
+		}
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+
+	err = s.Repo.Delete(ctx, &result)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+
+	return &DeleteUserResponse{}, nil
+}
+
 // StartUserManagemenetRESTServer Starts s REST Reverse proxy service for User Management
 func StartUserManagemenetRESTServer(address, grpcAddress, certFile string) error {
 	var err error
