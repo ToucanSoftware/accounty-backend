@@ -131,7 +131,7 @@ func main() {
 	}
 
 	grpcAddress := fmt.Sprintf("%s:%d", "0.0.0.0", 9090)
-	restAddress := fmt.Sprintf("%s:%d", "0.0.0.0", 8080)
+	restAddress := fmt.Sprintf("%s:%d", "0.0.0.0", 8081)
 	certFile := "cert/server.crt"
 	keyFile := "cert/server.key"
 

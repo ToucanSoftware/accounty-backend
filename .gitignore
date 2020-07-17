@@ -17,3 +17,4 @@ accounty-backend
 /genproto/
 accounty
 debug
+coverage.txt
