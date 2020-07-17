@@ -109,20 +109,20 @@ func gracefulShutdown(ctx context.Context, shutdown chan struct{}) {
 
 func main() {
 	var (
-		ctx = context.Background()
-		//port       = os.Getenv("PORT")
+		ctx        = context.Background()
 		repository = initRepository()
-		//mux        = api.NewMux(repository)
-		// server     = http.Server{
-		// 	Addr:    ":" + port,
-		// 	Handler: mux,
-		// }
-		shutdown = make(chan struct{})
+		shutdown   = make(chan struct{})
 	)
 
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		os.Getenv("POSTGRESQL_USERNAME"),
+		os.Getenv("POSTGRESQL_PASSWORD"),
+		os.Getenv("POSTGRESQL_HOST"),
+		os.Getenv("POSTGRESQL_PORT"),
+		os.Getenv("POSTGRESQL_DATABASE"))
+
 	m, err := migrate.New(
-		"file://db/migrations",
-		"postgres://toucan:password@localhost:5432/accounty?sslmode=disable")
+		"file://db/migrations", dsn)
 	if err != nil {
 		log.Fatal(err)
 	}
