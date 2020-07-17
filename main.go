@@ -27,7 +27,7 @@ import (
 	"syscall"
 	"time"
 
-	usersv1 "github.com/ToucanSoftware/accounty-backend/api/users/v1"
+	usersv1 "github.com/ToucanSoftware/accounty-backend/pkg/users/v1"
 	_ "github.com/dimiro1/banner/autoload"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
