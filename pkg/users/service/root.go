@@ -25,6 +25,7 @@ import (
 	model "github.com/ToucanSoftware/accounty-backend/pkg/users/model"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
+	"gopkg.in/go-playground/validator.v9"
 )
 
 var (
@@ -38,10 +39,22 @@ type UserService interface {
 }
 
 type userService struct {
-	Repo model.UserRepository
+	Repo      model.UserRepository
+	Validator *validator.Validate
 }
 
 func (s *userService) CreateUser(ctx context.Context, request *model.User) (*model.User, error) {
+	// Validate the user
+	err := s.Validator.Struct(request)
+
+	if err != nil {
+		for _, e := range err.(validator.ValidationErrors) {
+			fmt.Println(e)
+		}
+		logger.Error(err.Error(), zap.Error(err))
+		return nil, err
+	}
+
 	password := []byte(request.Password)
 
 	// Hashing the password with the default cost of 10
@@ -66,6 +79,7 @@ func (s *userService) CreateUser(ctx context.Context, request *model.User) (*mod
 // NewUserService Create a new User Service
 func NewUserService(repo rel.Repository) UserService {
 	return &userService{
-		Repo: model.New(repo),
+		Repo:      model.New(repo),
+		Validator: validator.New(),
 	}
 }

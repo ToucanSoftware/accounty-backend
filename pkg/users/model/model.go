@@ -27,9 +27,9 @@ import (
 // User is a model that maps to users table.
 type User struct {
 	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
+	Name      string    `json:"name" validate:"required,min=2,max=50"`
+	Username  string    `json:"username" validate:"required,min=2,max=50"`
+	Email     string    `json:"email" validate:"required,email"`
 	Password  string    `json:"password"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
