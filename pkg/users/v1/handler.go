@@ -173,7 +173,7 @@ func (s *Server) DeleteUser(ctx context.Context, in *DeleteUserRequest) (*Delete
 }
 
 // StartUserManagemenetRESTServer Starts s REST Reverse proxy service for User Management
-func StartUserManagemenetRESTServer(address, grpcAddress, certFile string) error {
+func StartUserManagemenetRESTServer(address, grpcAddress string) error {
 	var err error
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
@@ -197,7 +197,7 @@ func StartUserManagemenetRESTServer(address, grpcAddress, certFile string) error
 }
 
 // StartUserManagemenetGRPCServer Starts a gRPC Server for User Management
-func StartUserManagemenetGRPCServer(address, certFile, keyFile string, repo rel.Repository) error {
+func StartUserManagemenetGRPCServer(address string, repo rel.Repository) error {
 	// create a listener on TCP port
 	lis, err := net.Listen("tcp", address)
 	if err != nil {

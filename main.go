@@ -18,129 +18,41 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
-	"strings"
-	"syscall"
-	"time"
 
+	usersRepository "github.com/ToucanSoftware/accounty-backend/pkg/users/repository"
 	usersv1 "github.com/ToucanSoftware/accounty-backend/pkg/users/v1"
 	_ "github.com/dimiro1/banner/autoload"
-	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
 
-	"github.com/Fs02/rel"
-	"github.com/Fs02/rel/adapter/postgres"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 )
 
 var (
 	logger, _ = zap.NewProduction(zap.Fields(zap.String("type", "main")))
-	shutdowns []func() error
 )
 
-func initRepository() rel.Repository {
-	var (
-		logger, _ = zap.NewProduction(zap.Fields(zap.String("type", "repository")))
-		dsn       = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-			os.Getenv("POSTGRESQL_USERNAME"),
-			os.Getenv("POSTGRESQL_PASSWORD"),
-			os.Getenv("POSTGRESQL_HOST"),
-			os.Getenv("POSTGRESQL_PORT"),
-			os.Getenv("POSTGRESQL_DATABASE"))
-	)
+// Default port for REST Web API
+const defaultRestPort = "8081"
 
-	adapter, err := postgres.Open(dsn)
-	if err != nil {
-		logger.Fatal(err.Error(), zap.Error(err))
-	}
-	// add to graceful shutdown list.
-	shutdowns = append(shutdowns, adapter.Close)
-
-	repository := rel.New(adapter)
-	repository.Instrumentation(func(ctx context.Context, op string, message string) func(err error) {
-		// no op for rel functions.
-		if strings.HasPrefix(op, "rel-") {
-			return func(error) {}
-		}
-
-		t := time.Now()
-
-		return func(err error) {
-			duration := time.Since(t)
-			if err != nil {
-				logger.Error(message, zap.Error(err), zap.Duration("duration", duration), zap.String("operation", op))
-			} else {
-				logger.Info(message, zap.Duration("duration", duration), zap.String("operation", op))
-			}
-		}
-	})
-
-	return repository
-}
-
-func gracefulShutdown(ctx context.Context, shutdown chan struct{}) {
-	var (
-		sigint = make(chan os.Signal, 1)
-	)
-
-	signal.Notify(sigint, os.Interrupt, syscall.SIGTERM)
-	<-sigint
-
-	logger.Info("shutting down server gracefully")
-
-	// // stop receiving any request.
-	// if err := server.Shutdown(ctx); err != nil {
-	// 	logger.Fatal("shutdown error", zap.Error(err))
-	// }
-
-	// close any other modules.
-	for i := range shutdowns {
-		shutdowns[i]()
-	}
-
-	close(shutdown)
-}
+// Default port for gRPC API
+const defaultGpcpPort = "9090"
 
 func main() {
 	var (
-		ctx        = context.Background()
-		repository = initRepository()
-		shutdown   = make(chan struct{})
+		repository = usersRepository.InitRepository()
+		grpcPort   = getenv("GRPC_PORT", defaultGpcpPort)
+		restPort   = getenv("REST_PORT", defaultRestPort)
 	)
 
-	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		os.Getenv("POSTGRESQL_USERNAME"),
-		os.Getenv("POSTGRESQL_PASSWORD"),
-		os.Getenv("POSTGRESQL_HOST"),
-		os.Getenv("POSTGRESQL_PORT"),
-		os.Getenv("POSTGRESQL_DATABASE"))
-
-	m, err := migrate.New(
-		"file://db/migrations", dsn)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Unable to migrate up to the latest database schema - %v", err)
-	}
-
-	grpcAddress := fmt.Sprintf("%s:%d", "0.0.0.0", 9090)
-	restAddress := fmt.Sprintf("%s:%d", "0.0.0.0", 8081)
-	certFile := "cert/server.crt"
-	keyFile := "cert/server.key"
-
-	// select {}
-	go gracefulShutdown(ctx, shutdown)
+	grpcAddress := fmt.Sprintf("%s:%s", "0.0.0.0", grpcPort)
+	restAddress := fmt.Sprintf("%s:%s", "0.0.0.0", restPort)
 
 	// fire the gRPC server in a goroutine
 	go func() {
-		err := usersv1.StartUserManagemenetGRPCServer(grpcAddress, certFile, keyFile, repository)
+		err := usersv1.StartUserManagemenetGRPCServer(grpcAddress, repository)
 		if err != nil {
 			log.Fatalf("failed to start gRPC server: %s", err)
 		}
@@ -148,7 +60,7 @@ func main() {
 
 	// fire the REST server in a goroutine
 	go func() {
-		err := usersv1.StartUserManagemenetRESTServer(restAddress, grpcAddress, certFile)
+		err := usersv1.StartUserManagemenetRESTServer(restAddress, grpcAddress)
 		if err != nil {
 			log.Fatalf("failed to start gRPC server: %s", err)
 		}
@@ -157,6 +69,13 @@ func main() {
 	// infinite loop
 	log.Printf("Entering infinite loop")
 
-	<-shutdown
 	select {}
+}
+
+func getenv(key, fallback string) string {
+	value := os.Getenv(key)
+	if len(value) == 0 {
+		return fallback
+	}
+	return value
 }
