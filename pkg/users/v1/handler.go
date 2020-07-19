@@ -20,22 +20,35 @@ package v1
 import (
 	"context"
 	"fmt"
-	"github.com/Fs02/rel"
-	model "github.com/ToucanSoftware/accounty-backend/pkg/users/model"
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/reflection"
-	"google.golang.org/grpc/status"
 	"log"
 	"net"
 	"net/http"
+	"strconv"
+	"time"
+
+	model "github.com/ToucanSoftware/accounty-backend/pkg/users/model"
+	service "github.com/ToucanSoftware/accounty-backend/pkg/users/service"
+
+	"github.com/Fs02/rel"
+	"github.com/golang/protobuf/proto"
+	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 )
 
 // Server represents the gRPC server for User Managemenet Services
 type Server struct {
-	Repo model.UserRepository
+	Repo    model.UserRepository
+	Service service.UserService
 }
+
+const (
+	timestampFormat = time.StampNano
+)
 
 // CreateUser Creates a new User in the system
 func (s *Server) CreateUser(ctx context.Context, in *CreateUserRequest) (*CreateUserResponse, error) {
@@ -47,7 +60,7 @@ func (s *Server) CreateUser(ctx context.Context, in *CreateUserRequest) (*Create
 		Password: "1234",
 	}
 
-	err := s.Repo.Create(ctx, &user)
+	_, err := s.Service.CreateUser(ctx, &user)
 
 	if err != nil {
 		log.Printf("Error: %v", err)
@@ -172,6 +185,42 @@ func (s *Server) DeleteUser(ctx context.Context, in *DeleteUserRequest) (*Delete
 	return &DeleteUserResponse{}, nil
 }
 
+// AuthenticateUser Authenticate a User in the system
+func (s *Server) AuthenticateUser(ctx context.Context, request *AuthenticateUserRequest) (*AuthenticateUserResponse, error) {
+	var result model.User
+	var err error
+
+	err = s.Repo.FindByUsername(ctx, &result, request.Username)
+
+	if err != nil {
+		if err == rel.ErrNotFound {
+			return nil, status.Error(codes.Unauthenticated, "Invalid username or password.")
+		}
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+
+	hashedPassword := []byte(result.Password)
+	password := []byte(request.Password)
+
+	// Comparing the password with the hash
+	err = bcrypt.CompareHashAndPassword(hashedPassword, password)
+
+	if err != nil {
+		if err == bcrypt.ErrMismatchedHashAndPassword {
+			return nil, status.Error(codes.Unauthenticated, "Invalid username or password.")
+		}
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+
+	// Create and send header.
+	header := metadata.New(map[string]string{"location": "MTV", "timestamp": time.Now().Format(timestampFormat)})
+	grpc.SendHeader(ctx, header)
+
+	return &AuthenticateUserResponse{User: UnmarsallUser(&result)}, nil
+}
+
 // StartUserManagemenetRESTServer Starts s REST Reverse proxy service for User Management
 func StartUserManagemenetRESTServer(address, grpcAddress string) error {
 	var err error
@@ -179,7 +228,7 @@ func StartUserManagemenetRESTServer(address, grpcAddress string) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	mux := runtime.NewServeMux()
+	mux := runtime.NewServeMux(runtime.WithForwardResponseOption(httpResponseModifier))
 
 	// Setup the client gRPC options
 	opts := []grpc.DialOption{grpc.WithInsecure()}
@@ -205,7 +254,10 @@ func StartUserManagemenetGRPCServer(address string, repo rel.Repository) error {
 	}
 
 	// create a server instance
-	s := Server{Repo: model.New(repo)}
+	s := Server{
+		Repo:    model.New(repo),
+		Service: service.NewUserService(repo),
+	}
 
 	grpcServer := grpc.NewServer()
 
@@ -241,4 +293,25 @@ func UnmarsallUser(value *model.User) *User {
 		Username: value.Username,
 		Email:    value.Email,
 	}
+}
+
+func httpResponseModifier(ctx context.Context, w http.ResponseWriter, p proto.Message) error {
+	md, ok := runtime.ServerMetadataFromContext(ctx)
+	if !ok {
+		return nil
+	}
+
+	// set http status code
+	if vals := md.HeaderMD.Get("x-http-code"); len(vals) > 0 {
+		code, err := strconv.Atoi(vals[0])
+		if err != nil {
+			return err
+		}
+		w.WriteHeader(code)
+		// delete the headers to not expose any grpc-metadata in http response
+		delete(md.HeaderMD, "x-http-code")
+		delete(w.Header(), "Grpc-Metadata-X-Http-Code")
+	}
+
+	return nil
 }

@@ -39,6 +39,7 @@ type User struct {
 type UserRepository interface {
 	FindAll(ctx context.Context, users *[]User) error
 	Find(ctx context.Context, user *User, id int64) error
+	FindByUsername(ctx context.Context, user *User, username string) error
 	Create(ctx context.Context, user *User) error
 	Update(ctx context.Context, user *User) error
 	Delete(ctx context.Context, user *User) error
@@ -55,6 +56,10 @@ func (ur userRepository) FindAll(ctx context.Context, users *[]User) error {
 
 func (ur userRepository) Find(ctx context.Context, user *User, id int64) error {
 	return ur.repository.Find(ctx, user, where.Eq("id", id))
+}
+
+func (ur userRepository) FindByUsername(ctx context.Context, user *User, username string) error {
+	return ur.repository.Find(ctx, user, where.Eq("username", username))
 }
 
 func (ur userRepository) Create(ctx context.Context, user *User) error {
