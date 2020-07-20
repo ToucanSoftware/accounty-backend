@@ -20,12 +20,12 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
+	utils "github.com/ToucanSoftware/accounty-backend/internal/utils"
 	usersRepository "github.com/ToucanSoftware/accounty-backend/pkg/users/repository"
 	usersv1 "github.com/ToucanSoftware/accounty-backend/pkg/users/v1"
-	_ "github.com/dimiro1/banner/autoload"
 
+	_ "github.com/dimiro1/banner/autoload"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 )
@@ -34,17 +34,19 @@ var (
 	logger, _ = zap.NewProduction(zap.Fields(zap.String("type", "main")))
 )
 
-// Default port for REST Web API
-const defaultRestPort = "8081"
+const (
+	// Default port for REST Web API
+	defaultRestPort = "8081"
 
-// Default port for gRPC API
-const defaultGpcpPort = "9090"
+	// Default port for gRPC API
+	defaultGpcpPort = "9090"
+)
 
 func main() {
 	var (
 		repository = usersRepository.InitRepository()
-		grpcPort   = getenv("GRPC_PORT", defaultGpcpPort)
-		restPort   = getenv("REST_PORT", defaultRestPort)
+		grpcPort   = utils.GetEnv("GRPC_PORT", defaultGpcpPort)
+		restPort   = utils.GetEnv("REST_PORT", defaultRestPort)
 	)
 
 	grpcAddress := fmt.Sprintf("%s:%s", "0.0.0.0", grpcPort)
@@ -70,12 +72,4 @@ func main() {
 	log.Printf("Entering infinite loop")
 
 	select {}
-}
-
-func getenv(key, fallback string) string {
-	value := os.Getenv(key)
-	if len(value) == 0 {
-		return fallback
-	}
-	return value
 }

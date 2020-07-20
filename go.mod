@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/Fs02/rel v0.5.0
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dimiro1/banner v1.0.0
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/golang-migrate/migrate/v4 v4.11.0

@@ -24,9 +24,9 @@ import (
 	"net"
 	"net/http"
 	"strconv"
-	"time"
 
 	model "github.com/ToucanSoftware/accounty-backend/pkg/users/model"
+	security "github.com/ToucanSoftware/accounty-backend/pkg/users/security"
 	service "github.com/ToucanSoftware/accounty-backend/pkg/users/service"
 
 	"github.com/Fs02/rel"
@@ -47,7 +47,7 @@ type Server struct {
 }
 
 const (
-	timestampFormat = time.StampNano
+	authenticationHeader = "X-ACCOUNTY-ACCESS-TOKEN"
 )
 
 // CreateUser Creates a new User in the system
@@ -214,8 +214,15 @@ func (s *Server) AuthenticateUser(ctx context.Context, request *AuthenticateUser
 		return nil, err
 	}
 
+	accessToken, err := security.GenerateAccessToken(&result)
+
+	if err != nil {
+		log.Printf("Error: %v", err)
+		return nil, err
+	}
+
 	// Create and send header.
-	header := metadata.New(map[string]string{"location": "MTV", "timestamp": time.Now().Format(timestampFormat)})
+	header := metadata.New(map[string]string{authenticationHeader: accessToken})
 	grpc.SendHeader(ctx, header)
 
 	return &AuthenticateUserResponse{User: UnmarsallUser(&result)}, nil
@@ -311,6 +318,11 @@ func httpResponseModifier(ctx context.Context, w http.ResponseWriter, p proto.Me
 		// delete the headers to not expose any grpc-metadata in http response
 		delete(md.HeaderMD, "x-http-code")
 		delete(w.Header(), "Grpc-Metadata-X-Http-Code")
+	}
+	if vals := md.HeaderMD.Get(authenticationHeader); len(vals) > 0 {
+		delete(md.HeaderMD, authenticationHeader)
+		delete(w.Header(), "Grpc-Metadata-X-Accounty-Access-Token")
+		w.Header().Add(authenticationHeader, vals[0])
 	}
 
 	return nil
