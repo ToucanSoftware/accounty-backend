@@ -19,7 +19,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 
 	utils "github.com/ToucanSoftware/accounty-backend/internal/utils"
 	usersRepository "github.com/ToucanSoftware/accounty-backend/pkg/users/repository"
@@ -56,7 +55,7 @@ func main() {
 	go func() {
 		err := usersv1.StartUserManagemenetGRPCServer(grpcAddress, repository)
 		if err != nil {
-			log.Fatalf("failed to start gRPC server: %s", err)
+			logger.Error(err.Error(), zap.Error(err))
 		}
 	}()
 
@@ -64,12 +63,12 @@ func main() {
 	go func() {
 		err := usersv1.StartUserManagemenetRESTServer(restAddress, grpcAddress)
 		if err != nil {
-			log.Fatalf("failed to start gRPC server: %s", err)
+			logger.Error(err.Error(), zap.Error(err))
 		}
 	}()
 
 	// infinite loop
-	log.Printf("Entering infinite loop")
+	logger.Info("Entering infinite loop")
 
 	select {}
 }

@@ -20,7 +20,6 @@ package v1
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -32,6 +31,7 @@ import (
 	"github.com/Fs02/rel"
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -50,6 +50,10 @@ const (
 	authenticationHeader = "X-ACCOUNTY-ACCESS-TOKEN"
 )
 
+var (
+	logger, _ = zap.NewProduction(zap.Fields(zap.String("type", "v1")))
+)
+
 // CreateUser Creates a new User in the system
 func (s *Server) CreateUser(ctx context.Context, in *CreateUserRequest) (*CreateUserResponse, error) {
 
@@ -63,7 +67,7 @@ func (s *Server) CreateUser(ctx context.Context, in *CreateUserRequest) (*Create
 	_, err := s.Service.CreateUser(ctx, &user)
 
 	if err != nil {
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
@@ -84,7 +88,7 @@ func (s *Server) ListUsers(ctx context.Context, in *ListUsersRequest) (*ListUser
 	err := s.Repo.FindAll(ctx, &result)
 
 	if err != nil {
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
@@ -111,7 +115,7 @@ func (s *Server) GetUser(ctx context.Context, in *GetUserRequest) (*GetUserRespo
 			return nil, status.Error(codes.NotFound,
 				fmt.Sprintf("User with id %d not found.", id))
 		}
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
@@ -135,7 +139,7 @@ func (s *Server) UpdateUser(ctx context.Context, in *UpdateUserRequest) (*Update
 			return nil, status.Error(codes.NotFound,
 				fmt.Sprintf("User with id %d not found.", id))
 		}
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 	var user = MarsallUser(in.User)
@@ -144,7 +148,7 @@ func (s *Server) UpdateUser(ctx context.Context, in *UpdateUserRequest) (*Update
 	err = s.Repo.Update(ctx, user)
 
 	if err != nil {
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
@@ -171,14 +175,14 @@ func (s *Server) DeleteUser(ctx context.Context, in *DeleteUserRequest) (*Delete
 			return nil, status.Error(codes.NotFound,
 				fmt.Sprintf("User with id %d not found.", id))
 		}
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
 	err = s.Repo.Delete(ctx, &result)
 
 	if err != nil {
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
@@ -196,7 +200,7 @@ func (s *Server) AuthenticateUser(ctx context.Context, request *AuthenticateUser
 		if err == rel.ErrNotFound {
 			return nil, status.Error(codes.Unauthenticated, "Invalid username or password.")
 		}
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
@@ -210,14 +214,14 @@ func (s *Server) AuthenticateUser(ctx context.Context, request *AuthenticateUser
 		if err == bcrypt.ErrMismatchedHashAndPassword {
 			return nil, status.Error(codes.Unauthenticated, "Invalid username or password.")
 		}
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
 	accessToken, err := security.GenerateAccessToken(&result)
 
 	if err != nil {
-		log.Printf("Error: %v", err)
+		logger.Error(err.Error(), zap.Error(err))
 		return nil, err
 	}
 
@@ -246,7 +250,7 @@ func StartUserManagemenetRESTServer(address, grpcAddress string) error {
 		return fmt.Errorf("could not register service User Management Service: %s", err)
 	}
 
-	log.Printf("starting HTTP/1.1 REST server on %s", address)
+	logger.Info(fmt.Sprintf("Starting HTTP/1.1 REST server on %s", address))
 	http.ListenAndServe(address, mux)
 
 	return nil
@@ -274,7 +278,8 @@ func StartUserManagemenetGRPCServer(address string, repo rel.Repository) error {
 	reflection.Register(grpcServer)
 
 	// start the server
-	log.Printf("starting HTTP/2 gRPC server on %s", address)
+	logger.Info(fmt.Sprintf("Starting HTTP/2 gRPC server on %s", address))
+
 	if err := grpcServer.Serve(lis); err != nil {
 		return fmt.Errorf("failed to serve: %s", err)
 	}

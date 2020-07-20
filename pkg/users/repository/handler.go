@@ -21,7 +21,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -37,21 +36,22 @@ import (
 
 var (
 	logger, _ = zap.NewProduction(zap.Fields(zap.String("type", "repository")))
+	dsn       = ""
 	shutdowns []func() error
 )
+
+func init() {
+	dsn = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		os.Getenv("POSTGRESQL_USERNAME"),
+		os.Getenv("POSTGRESQL_PASSWORD"),
+		os.Getenv("POSTGRESQL_HOST"),
+		os.Getenv("POSTGRESQL_PORT"),
+		os.Getenv("POSTGRESQL_DATABASE"))
+}
 
 // InitRepository Initialize Repositories.
 // Connect to accounty database, run migrations and initialize the ropository
 func InitRepository() rel.Repository {
-	var (
-		logger, _ = zap.NewProduction(zap.Fields(zap.String("type", "repository")))
-		dsn       = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-			os.Getenv("POSTGRESQL_USERNAME"),
-			os.Getenv("POSTGRESQL_PASSWORD"),
-			os.Getenv("POSTGRESQL_HOST"),
-			os.Getenv("POSTGRESQL_PORT"),
-			os.Getenv("POSTGRESQL_DATABASE"))
-	)
 
 	adapter, err := postgres.Open(dsn)
 	if err != nil {
@@ -82,10 +82,10 @@ func InitRepository() rel.Repository {
 	m, err := migrate.New(
 		"file://db/migrations", dsn)
 	if err != nil {
-		log.Fatal(err)
+		logger.Error(err.Error(), zap.Error(err))
 	}
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Unable to migrate up to the latest database schema - %v", err)
+		logger.Error(fmt.Sprintf("Unable to migrate up to the latest database schema - %v", err), zap.Error(err))
 	}
 
 	return repository
